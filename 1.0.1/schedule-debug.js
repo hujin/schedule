@@ -1,9 +1,11 @@
-define("schedule", ["$","./i18n-debug","./schedule-debug.css","dialog"], function(require, exports, module) {
+define("schedule", ["$","./i18n-debug","./schedule-debug.css","./lunar-debug","dialog"], function(require, exports, module) {
     var $=require("$");
     require("./schedule-debug.css");
     var i18n = require("./i18n-debug");
     var Dialog =require("dialog");
+    var Lunar=require("./lunar-debug");
     var def,set;
+   
     Schedule=function(opts){
         def = {
             weekStart: 0,
@@ -63,7 +65,7 @@ define("schedule", ["$","./i18n-debug","./schedule-debug.css","dialog"], functio
                 strhtml +=" <ul class=\"info-items\">";
                 strhtml +="     <li class=\"info-item first\"><span>今天:</span></li>";
                 strhtml +="     <li class=\"info-item info-item-border\"><span>"+ def.Year + "年" + def.Month + "月" + def.Day + "日 " + def.time  +"</span></li>";
-                strhtml +="     <li class=\"info-item info-item-border\"><span>农历<span></li>";
+                strhtml +="     <li class=\"info-item info-item-border\"><span>"+ new Lunar(def.today).cDate.toLongString() +"<span></li>";
                 strhtml +="     <li class=\"info-item info-item-border\"><span>天气预报<span></li>";
                 strhtml +="     <li class=\"info-item\"><span>罗源湾 纬度:6°28'N 经度:119°41'E<span></li>";
                 strhtml +=" </ul>";
@@ -297,7 +299,7 @@ define("schedule", ["$","./i18n-debug","./schedule-debug.css","dialog"], functio
                 bhm.push("  <div class=\"cell-date\" xdate='", dateFormat.call(ndate, i18n.datepicker.dateformat.fulldayvalue), "'>");
                 bhm.push("      <div class=\"cell-date-title\">");
                 bhm.push("          <span class=\""+  weekclass+"\">", ndate.getDate(), "</span>");
-                bhm.push("          <span class=\"schedule-lunar\">农历</span>");
+                bhm.push("          <span class=\"schedule-lunar\">"+ new Lunar(ndate).cDate.toString() +"</span>");
                 bhm.push("          <span class=\"schedule-weather\"><i class=\"iconfont\">&#x0038;</i></span>");
                 bhm.push("      </div>");
                 bhm.push("      <div class=\"schedule-list\"></div>");
@@ -565,7 +567,7 @@ define("schedule", ["$","./i18n-debug","./schedule-debug.css","dialog"], functio
     module.exports = Schedule;
 });
 
-define("gallery/schedule/1.0.0/i18n-debug", [], function(require, exports,module) {
+define("gallery/schedule/1.0.1/i18n-debug", [], function(require, exports,module) {
     var i18 = {
         datepicker: {
             dateformat: {
@@ -607,3 +609,125 @@ define("gallery/schedule/1.0.0/i18n-debug", [], function(require, exports,module
     module.exports = i18;
 });
 
+define("gallery/schedule/1.0.1/lunar-debug",[],function(require,exports,module){
+
+    var lunarFestival={
+        "正月初一":"春节",
+        "正月十五":"元宵",
+        "五月初五":"端午",
+        "七月初七":"七夕",
+        "七月十五":"中元",
+        "九月初九":"重阳",
+        "腊月初八":"腊八",
+        "腊月廿三":"小年",
+        "腊月卅":"除夕"
+    }
+
+    var Calendar = function (date) {
+        this.date = date ? date : new Date();
+        this.cDate = {
+            toString : function () {
+                var lunar,
+                    lunarLongStr=this.yf + "月" + this.rq;
+                if(this.rq =="初一"){
+                    lunar =this.yf + "月";
+                }else{
+                    lunar =this.rq;
+                }
+                for(var i in lunarFestival){
+                    if(lunarLongStr==i){
+                        lunar=lunarFestival[i];
+                    }
+                }
+                return lunar;
+            },
+            toLongString:function(){
+                var lunar="";
+                for(var i in lunarFestival){
+                    if(this.yf + "月" + this.rq==i){
+                        lunar=lunarFestival[i];
+                    }
+                }
+                return this.yf + "月" + this.rq + lunar;
+            }
+        };
+        this.init();
+        this.calc();
+    };
+
+    Calendar.prototype = {
+        constructor : Calendar,
+        cDays : [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334],
+        cData : [0x41A95, 0xD4A, 0xDA5, 0x20B55, 0x56A, 0x7155B, 0x25D, 0x92D, 0x5192B, 0xA95, 0xB4A, 0x416AA, 0xAD5, 0x90AB5, 0x4BA, 0xA5B, 0x60A57, 0x52B, 0xA93, 0x40E95],
+        CSTR : {
+            TG : "甲乙丙丁戊己庚辛壬癸", // 天干
+            DZ : "子丑寅卯辰巳午未申酉戌亥", // 地支
+            SX : "鼠牛虎兔龙蛇马羊猴鸡狗猪", // 生肖
+            RQ : "一二三四五六七八九十", // 日期
+            YF : "正二三四五六七八九十冬腊", // 月份
+            XQ : "日一二三四五六" // 星期
+        },
+        // month是大月还是小月
+        getBit : function (index, month) {
+            return (this.cData[index] >> month) & 1;
+        },
+        // 初始化
+        init : function () {
+            var total, m, n, k;
+            var isEnd = false;
+            var tmp = this.date.getFullYear();
+            total = (tmp - 2001) * 365
+                + Math.floor((tmp - 2001) / 4)
+                + this.cDays[this.date.getMonth()]
+                + this.date.getDate() - 23; // 2001年1月23是除夕;该句计算到起始年正月初一的天数
+            if (this.date.getYear() % 4 == 0 && this.date.getMonth() > 1) {
+                total++; // 当年是闰年且已过2月再加一天！
+            }
+            for (m = 0; ; m++) {
+                k = (this.cData[m] < 0xfff) ? 11 : 12; //起始年+m闰月吗？
+                for (n = k; n >= 0; n--) {
+                    if (total <= 29 + this.getBit(m, n)) { //已找到农历年!
+                        isEnd = true;
+                        break;
+                    }
+                    total = total - 29 - this.getBit(m, n); //寻找农历年！
+                }
+                if (isEnd) {
+                    break;
+                }
+            }
+            this.cDate.Year = 2001 + m; //农历年
+            this.cDate.Month = k - n + 1; //农历月
+            this.cDate.Day = total; //农历日
+            if (k == 12) { //闰年！
+                if (this.cDate.Month == Math.floor(this.cData[m] / 0x10000) + 1) { //该月就是闰月！
+                    this.cDate.Month = 1 - this.cDate.Month;
+                }
+                if (this.cDate.Month > Math.floor(this.cData[m] / 0x10000) + 1) {
+                    this.cDate.Month--; //该月是闰月后某个月！
+                }
+            }
+            this.cDate.Hour = Math.floor((this.date.getHours() + 1) / 2);
+        },
+        // 计算
+        calc : function () {
+            var year = this.cDate.Year - 4;
+            this.cDate.tg = this.CSTR.TG.charAt(year % 10); //天干
+            this.cDate.dz = this.CSTR.DZ.charAt(year % 12); //地支
+            this.cDate.sx = this.CSTR.SX.charAt(year % 12); //生肖
+            this.cDate.yf = this.CSTR.YF.charAt(this.cDate.Month - 1);
+            if (this.cDate.Month < 1) {
+                this.cDate.yf = "闰" + this.CSTR.YF.charAt(-this.cDate.Month - 1);
+            }
+            this.cDate.rq = (this.cDate.Day < 11) ? "初" : ((this.cDate.Day < 20) ? "十" : ((this.cDate.Day < 30) ? "廿" : "卅"));
+            if (this.cDate.Day % 10 != 0 || this.cDate.Day == 10) {
+                this.cDate.rq += this.CSTR.RQ.charAt((this.cDate.Day - 1) % 10);
+            }
+            this.cDate.sj = this.CSTR.DZ.charAt((this.cDate.Hour) % 12) + "时";
+            if (this.cDate.Hour == 12) {
+                this.cDate.sj = "夜" + this.cDate.sj;
+            }
+        }
+    }
+    module.exports = Calendar;
+})
