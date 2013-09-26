@@ -481,8 +481,6 @@ define("schedule", ["$","./i18n-debug","./schedule-debug.css","dialog"], functio
             })
         }
     }
-   // window.schedule = schedule;
-
     var DateAdd = function (interval, number, idate) {
         number = parseInt(number);
         var date;
